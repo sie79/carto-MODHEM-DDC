@@ -1,0 +1,762 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="initial-scale=1,user-scalable=no,maximum-scale=1,width=device-width">
+        <meta name="mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <link rel="stylesheet" href="css/leaflet.css">
+        <link rel="stylesheet" href="css/L.Control.Layers.Tree.css">
+        <link rel="stylesheet" href="css/L.Control.Locate.min.css">
+        <link rel="stylesheet" href="css/qgis2web.css">
+        <link rel="stylesheet" href="css/fontawesome-all.min.css">
+        <link rel="stylesheet" href="css/MarkerCluster.css">
+        <link rel="stylesheet" href="css/MarkerCluster.Default.css">
+        <link rel="stylesheet" href="css/leaflet-search.css">
+        <link rel="stylesheet" href="css/leaflet-control-geocoder.Geocoder.css">
+        <link rel="stylesheet" href="css/leaflet-measure.css">
+        <style>
+        html, body, #map {
+            width: 100%;
+            height: 100%;
+            padding: 0;
+            margin: 0;
+        }
+        
+        </style>
+        <title>CARTOGRAPHIE DES REAILISATIONS DU PROJET  MODHEM + /DDC</title>
+    </head>
+    <body>
+        <div id="map">
+        </div>
+        <script src="js/qgis2web_expressions.js"></script>
+        <script src="js/leaflet.js"></script>
+        <script src="js/L.Control.Layers.Tree.min.js"></script>
+        <script src="js/L.Control.Locate.min.js"></script>
+        <script src="js/multi-style-layer.js"></script>
+        <script src="js/leaflet.rotatedMarker.js"></script>
+        <script src="js/leaflet.pattern.js"></script>
+        <script src="js/leaflet-hash.js"></script>
+        <script src="js/Autolinker.min.js"></script>
+        <script src="js/rbush.min.js"></script>
+        <script src="js/labelgun.min.js"></script>
+        <script src="js/labels.js"></script>
+        <script src="js/leaflet-control-geocoder.Geocoder.js"></script>
+        <script src="js/leaflet-measure.js"></script>
+        <script src="js/leaflet.markercluster.js"></script>
+        <script src="js/leaflet-search.js"></script>
+        <script src="data/Communesdinetrvention_2.js"></script>
+        <script src="data/Pistesbtail_3.js"></script>
+        <script src="data/Airesderepos_4.js"></script>
+        <script src="data/Airedepture_5.js"></script>
+        <script src="data/Infrastructures_6.js"></script>
+        <script>
+        var highlightLayer;
+        function highlightFeature(e) {
+            highlightLayer = e.target;
+            highlightLayer.openPopup();
+        }
+        var map = L.map('map', {
+            zoomControl:false, maxZoom:14, minZoom:1
+        }).fitBounds([[7.820021743146891,-7.341574607943661],[14.024644160282081,2.0040885940285396]]);
+        var hash = new L.Hash(map);
+        map.attributionControl.setPrefix('<a href="https://github.com/tomchadwin/qgis2web" target="_blank">BOGNINI Siégnounou</a> &middot; <a href="https://leafletjs.com" title="A JS library for interactive maps">Leaflet</a> &middot; <a href="https://qgis.org">QGIS</a>');
+        var autolinker = new Autolinker({truncate: {length: 30, location: 'smart'}});
+        // remove popup's row if "visible-with-data"
+        function removeEmptyRowsFromPopupContent(content, feature) {
+         var tempDiv = document.createElement('div');
+         tempDiv.innerHTML = content;
+         var rows = tempDiv.querySelectorAll('tr');
+         for (var i = 0; i < rows.length; i++) {
+             var td = rows[i].querySelector('td.visible-with-data');
+             var key = td ? td.id : '';
+             if (td && td.classList.contains('visible-with-data') && feature.properties[key] == null) {
+                 rows[i].parentNode.removeChild(rows[i]);
+             }
+         }
+         return tempDiv.innerHTML;
+        }
+        // add class to format popup if it contains media
+		function addClassToPopupIfMedia(content, popup) {
+			var tempDiv = document.createElement('div');
+			tempDiv.innerHTML = content;
+			if (tempDiv.querySelector('td img')) {
+				popup._contentNode.classList.add('media');
+					// Delay to force the redraw
+					setTimeout(function() {
+						popup.update();
+					}, 10);
+			} else {
+				popup._contentNode.classList.remove('media');
+			}
+		}
+        var title = new L.Control({'position':'topleft'});
+        title.onAdd = function (map) {
+            this._div = L.DomUtil.create('div', 'info');
+            this.update();
+            return this._div;
+        };
+        title.update = function () {
+            this._div.innerHTML = '<h5>CARTOGRAPHIE DES REAILISATIONS DU PROJET  MODHEM + /DDC</h5>';
+        };
+        title.addTo(map);
+        var abstract = new L.Control({'position':'bottomleft'});
+        abstract.onAdd = function (map) {
+            this._div = L.DomUtil.create('div',
+            'leaflet-control abstract');
+            this._div.id = 'abstract'
+
+                abstract.show();
+                return this._div;
+            };
+            abstract.show = function () {
+                this._div.classList.remove("abstract");
+                this._div.classList.add("abstractUncollapsed");
+                this._div.innerHTML = 'Cette cartographie capitalise les réalisations effectuées dans le cadre de la mise en oeuvre du Projet  MODHEM + /DDC sur 5 ans';
+        };
+        abstract.addTo(map);
+        var zoomControl = L.control.zoom({
+            position: 'topleft'
+        }).addTo(map);
+        L.control.locate({locateOptions: {maxZoom: 19}}).addTo(map);
+        var measureControl = new L.Control.Measure({
+            position: 'topleft',
+            primaryLengthUnit: 'meters',
+            secondaryLengthUnit: 'kilometers',
+            primaryAreaUnit: 'sqmeters',
+            secondaryAreaUnit: 'hectares'
+        });
+        measureControl.addTo(map);
+        document.getElementsByClassName('leaflet-control-measure-toggle')[0].innerHTML = '';
+        document.getElementsByClassName('leaflet-control-measure-toggle')[0].className += ' fas fa-ruler';
+        var bounds_group = new L.featureGroup([]);
+        function setBounds() {
+        }
+        map.createPane('pane_GoogleSatellite_0');
+        map.getPane('pane_GoogleSatellite_0').style.zIndex = 400;
+        var layer_GoogleSatellite_0 = L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+            pane: 'pane_GoogleSatellite_0',
+            opacity: 1.0,
+            attribution: '<a href="https://www.google.at/permissions/geoguidelines/attr-guide.html">Map data ©2015 Google</a>',
+            minZoom: 1,
+            maxZoom: 14,
+            minNativeZoom: 0,
+            maxNativeZoom: 20
+        });
+        layer_GoogleSatellite_0;
+        map.addLayer(layer_GoogleSatellite_0);
+        map.createPane('pane_OSMStandard_1');
+        map.getPane('pane_OSMStandard_1').style.zIndex = 401;
+        var layer_OSMStandard_1 = L.tileLayer('http://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            pane: 'pane_OSMStandard_1',
+            opacity: 1.0,
+            attribution: '<a href="https://www.openstreetmap.org/copyright">© OpenStreetMap contributors, CC-BY-SA</a>',
+            minZoom: 1,
+            maxZoom: 14,
+            minNativeZoom: 0,
+            maxNativeZoom: 19
+        });
+        layer_OSMStandard_1;
+        map.addLayer(layer_OSMStandard_1);
+        function pop_Communesdinetrvention_2(feature, layer) {
+            layer.on({
+                mouseout: function(e) {
+                    if (typeof layer.closePopup == 'function') {
+                        layer.closePopup();
+                    } else {
+                        layer.eachLayer(function(feature){
+                            feature.closePopup()
+                        });
+                    }
+                },
+                mouseover: highlightFeature,
+            });
+            var popupContent = '<table>\
+                    <tr>\
+                        <td colspan="2">' + (feature.properties['Nom'] !== null ? autolinker.link(String(feature.properties['Nom']).replace(/'/g, '\'').replace(/"/g, '&quot;').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_Communesdinetrvention_2_0() {
+            return {
+                pane: 'pane_Communesdinetrvention_2',
+                opacity: 1,
+                color: 'rgba(234,4,211,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 3.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(114,155,111,0.0)',
+                interactive: true,
+            }
+        }
+        map.createPane('pane_Communesdinetrvention_2');
+        map.getPane('pane_Communesdinetrvention_2').style.zIndex = 402;
+        map.getPane('pane_Communesdinetrvention_2').style['mix-blend-mode'] = 'normal';
+        var layer_Communesdinetrvention_2 = new L.geoJson(json_Communesdinetrvention_2, {
+            attribution: '',
+            interactive: true,
+            dataVar: 'json_Communesdinetrvention_2',
+            layerName: 'layer_Communesdinetrvention_2',
+            pane: 'pane_Communesdinetrvention_2',
+            onEachFeature: pop_Communesdinetrvention_2,
+            style: style_Communesdinetrvention_2_0,
+        });
+        bounds_group.addLayer(layer_Communesdinetrvention_2);
+        map.addLayer(layer_Communesdinetrvention_2);
+        function pop_Pistesbtail_3(feature, layer) {
+            layer.on({
+                mouseout: function(e) {
+                    if (typeof layer.closePopup == 'function') {
+                        layer.closePopup();
+                    } else {
+                        layer.eachLayer(function(feature){
+                            feature.closePopup()
+                        });
+                    }
+                },
+                mouseover: highlightFeature,
+            });
+            var popupContent = '<table>\
+                    <tr>\
+                        <th scope="row">Type</th>\
+                        <td class="visible-with-data" id="Type">' + (feature.properties['Type'] !== null ? autolinker.link(String(feature.properties['Type']).replace(/'/g, '\'').replace(/"/g, '&quot;').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_Pistesbtail_3_0() {
+            return {
+                pane: 'pane_Pistesbtail_3',
+                opacity: 1,
+                color: 'rgba(235,9,9,1.0)',
+                dashArray: '',
+                lineCap: 'round',
+                lineJoin: 'round',
+                weight: 8.0,
+                fillOpacity: 0,
+                interactive: true,
+            }
+        }
+        function style_Pistesbtail_3_1() {
+            return {
+                pane: 'pane_Pistesbtail_3',
+                opacity: 1,
+                color: 'rgba(51,160,44,1.0)',
+                dashArray: '',
+                lineCap: 'round',
+                lineJoin: 'round',
+                weight: 6.0,
+                fillOpacity: 0,
+                interactive: true,
+            }
+        }
+        map.createPane('pane_Pistesbtail_3');
+        map.getPane('pane_Pistesbtail_3').style.zIndex = 403;
+        map.getPane('pane_Pistesbtail_3').style['mix-blend-mode'] = 'normal';
+        var layer_Pistesbtail_3 = new L.geoJson.multiStyle(json_Pistesbtail_3, {
+            attribution: '',
+            interactive: true,
+            dataVar: 'json_Pistesbtail_3',
+            layerName: 'layer_Pistesbtail_3',
+            pane: 'pane_Pistesbtail_3',
+            onEachFeature: pop_Pistesbtail_3,
+            styles: [style_Pistesbtail_3_0,style_Pistesbtail_3_1,]
+        });
+        bounds_group.addLayer(layer_Pistesbtail_3);
+        map.addLayer(layer_Pistesbtail_3);
+        function pop_Airesderepos_4(feature, layer) {
+            layer.on({
+                mouseout: function(e) {
+                    if (typeof layer.closePopup == 'function') {
+                        layer.closePopup();
+                    } else {
+                        layer.eachLayer(function(feature){
+                            feature.closePopup()
+                        });
+                    }
+                },
+                mouseover: highlightFeature,
+            });
+            var popupContent = '<table>\
+                    <tr>\
+                        <th scope="row">Nom</th>\
+                        <td class="visible-with-data" id="Nom">' + (feature.properties['Nom'] !== null ? autolinker.link(String(feature.properties['Nom']).replace(/'/g, '\'').replace(/"/g, '&quot;').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Superficie (ha)</th>\
+                        <td class="visible-with-data" id="Superficie">' + (feature.properties['Superficie'] !== null ? autolinker.link(String(feature.properties['Superficie']).replace(/'/g, '\'').replace(/"/g, '&quot;').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Financement</th>\
+                        <td class="visible-with-data" id="Financemen">' + (feature.properties['Financemen'] !== null ? autolinker.link(String(feature.properties['Financemen']).replace(/'/g, '\'').replace(/"/g, '&quot;').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Année de réalisation</th>\
+                        <td class="visible-with-data" id="Année Ré">' + (feature.properties['Année Ré'] !== null ? autolinker.link(String(feature.properties['Année Ré']).replace(/'/g, '\'').replace(/"/g, '&quot;').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Villages</th>\
+                        <td class="visible-with-data" id="Villages">' + (feature.properties['Villages'] !== null ? autolinker.link(String(feature.properties['Villages']).replace(/'/g, '\'').replace(/"/g, '&quot;').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_Airesderepos_4_0() {
+            return {
+                pane: 'pane_Airesderepos_4',
+                opacity: 1,
+                color: 'rgba(255,127,0,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 3.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(50,225,50,1.0)',
+                interactive: true,
+            }
+        }
+        map.createPane('pane_Airesderepos_4');
+        map.getPane('pane_Airesderepos_4').style.zIndex = 404;
+        map.getPane('pane_Airesderepos_4').style['mix-blend-mode'] = 'normal';
+        var layer_Airesderepos_4 = new L.geoJson(json_Airesderepos_4, {
+            attribution: '',
+            interactive: true,
+            dataVar: 'json_Airesderepos_4',
+            layerName: 'layer_Airesderepos_4',
+            pane: 'pane_Airesderepos_4',
+            onEachFeature: pop_Airesderepos_4,
+            style: style_Airesderepos_4_0,
+        });
+        bounds_group.addLayer(layer_Airesderepos_4);
+        map.addLayer(layer_Airesderepos_4);
+        function pop_Airedepture_5(feature, layer) {
+            layer.on({
+                mouseout: function(e) {
+                    if (typeof layer.closePopup == 'function') {
+                        layer.closePopup();
+                    } else {
+                        layer.eachLayer(function(feature){
+                            feature.closePopup()
+                        });
+                    }
+                },
+                mouseover: highlightFeature,
+            });
+            var popupContent = '<table>\
+                    <tr>\
+                        <th scope="row">Nom</th>\
+                        <td class="visible-with-data" id="nom">' + (feature.properties['nom'] !== null ? autolinker.link(String(feature.properties['nom']).replace(/'/g, '\'').replace(/"/g, '&quot;').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Superficie (ha)</th>\
+                        <td class="visible-with-data" id="Sup">' + (feature.properties['Sup'] !== null ? autolinker.link(String(feature.properties['Sup']).replace(/'/g, '\'').replace(/"/g, '&quot;').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <td colspan="2">' + (feature.properties['REGION'] !== null ? autolinker.link(String(feature.properties['REGION']).replace(/'/g, '\'').replace(/"/g, '&quot;').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Commune</th>\
+                        <td class="visible-with-data" id="COMMUNE">' + (feature.properties['COMMUNE'] !== null ? autolinker.link(String(feature.properties['COMMUNE']).replace(/'/g, '\'').replace(/"/g, '&quot;').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">villages</th>\
+                        <td class="visible-with-data" id="villages">' + (feature.properties['villages'] !== null ? autolinker.link(String(feature.properties['villages']).replace(/'/g, '\'').replace(/"/g, '&quot;').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Financement</th>\
+                        <td class="visible-with-data" id="Finacement">' + (feature.properties['Finacement'] !== null ? autolinker.link(String(feature.properties['Finacement']).replace(/'/g, '\'').replace(/"/g, '&quot;').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_Airedepture_5_0() {
+            return {
+                pane: 'pane_Airedepture_5',
+                opacity: 1,
+                color: 'rgba(1,90,255,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 2.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(51,160,44,1.0)',
+                interactive: true,
+            }
+        }
+        map.createPane('pane_Airedepture_5');
+        map.getPane('pane_Airedepture_5').style.zIndex = 405;
+        map.getPane('pane_Airedepture_5').style['mix-blend-mode'] = 'normal';
+        var layer_Airedepture_5 = new L.geoJson(json_Airedepture_5, {
+            attribution: '',
+            interactive: true,
+            dataVar: 'json_Airedepture_5',
+            layerName: 'layer_Airedepture_5',
+            pane: 'pane_Airedepture_5',
+            onEachFeature: pop_Airedepture_5,
+            style: style_Airedepture_5_0,
+        });
+        bounds_group.addLayer(layer_Airedepture_5);
+        map.addLayer(layer_Airedepture_5);
+        function pop_Infrastructures_6(feature, layer) {
+            layer.on({
+                mouseout: function(e) {
+                    if (typeof layer.closePopup == 'function') {
+                        layer.closePopup();
+                    } else {
+                        layer.eachLayer(function(feature){
+                            feature.closePopup()
+                        });
+                    }
+                },
+                mouseover: highlightFeature,
+            });
+            var popupContent = '<table>\
+                    <tr>\
+                        <th scope="row">Commune</th>\
+                        <td>' + (feature.properties['Commune'] !== null ? autolinker.link(String(feature.properties['Commune']).replace(/'/g, '\'').replace(/"/g, '&quot;').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Village</th>\
+                        <td class="visible-with-data" id="Village">' + (feature.properties['Village'] !== null ? autolinker.link(String(feature.properties['Village']).replace(/'/g, '\'').replace(/"/g, '&quot;').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Type</th>\
+                        <td class="visible-with-data" id="Type">' + (feature.properties['Type'] !== null ? autolinker.link(String(feature.properties['Type']).replace(/'/g, '\'').replace(/"/g, '&quot;').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Année Réalisation</th>\
+                        <td class="visible-with-data" id="Année Réalisation">' + (feature.properties['Année Réalisation'] !== null ? autolinker.link(String(feature.properties['Année Réalisation']).replace(/'/g, '\'').replace(/"/g, '&quot;').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Financement</th>\
+                        <td class="visible-with-data" id="Financement">' + (feature.properties['Financement'] !== null ? autolinker.link(String(feature.properties['Financement']).replace(/'/g, '\'').replace(/"/g, '&quot;').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Coord_X</th>\
+                        <td class="visible-with-data" id="Coord_X">' + (feature.properties['Coord_X'] !== null ? autolinker.link(String(feature.properties['Coord_X']).replace(/'/g, '\'').replace(/"/g, '&quot;').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Coord_Y</th>\
+                        <td class="visible-with-data" id="Coord_Y">' + (feature.properties['Coord_Y'] !== null ? autolinker.link(String(feature.properties['Coord_Y']).replace(/'/g, '\'').replace(/"/g, '&quot;').toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Photo</th>\
+                        <td class="visible-with-data" id="Photo">' + (feature.properties['Photo'] !== null ? '<img src="images/' + String(feature.properties['Photo']).replace(/[\\\/:]/g, '_').trim().replace(/'/g, '\\\'').replace(/\"/g, '&quot;') + '">' : '') + '</td>\
+                    </tr>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_Infrastructures_6_0(feature) {
+            switch(String(feature.properties['Type'])) {
+                case 'AEPS':
+                    return {
+                pane: 'pane_Infrastructures_6',
+                shape: 'triangle',
+                radius: 10.0,
+                opacity: 1,
+                color: 'rgba(50,87,128,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 2.0,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(0,55,254,1.0)',
+                interactive: true,
+            }
+                    break;
+                case 'Aire d\'abattage':
+                    return {
+                pane: 'pane_Infrastructures_6',
+                shape: 'triangle',
+                radius: 10.0,
+                opacity: 1,
+                color: 'rgba(50,87,128,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 2.0,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(253,191,111,1.0)',
+                interactive: true,
+            }
+                    break;
+                case 'Biodigesteur ménage':
+                    return {
+                pane: 'pane_Infrastructures_6',
+                radius: 10.0,
+                opacity: 1,
+                color: 'rgba(9,52,242,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 2.0,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(51,160,44,0.7803921568627451)',
+                interactive: true,
+            }
+                    break;
+                case 'Biodigesteur productif':
+                    return {
+                pane: 'pane_Infrastructures_6',
+                radius: 13.2,
+                opacity: 1,
+                color: 'rgba(184,8,8,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(184,8,20,1.0)',
+                interactive: true,
+            }
+                    break;
+                case 'Champs école':
+                    return {
+                pane: 'pane_Infrastructures_6',
+                radius: 8.4,
+                opacity: 1,
+                color: 'rgba(12,0,244,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 2.0,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(51,160,44,1.0)',
+                interactive: true,
+            }
+                    break;
+                case 'Forage':
+                    return {
+                pane: 'pane_Infrastructures_6',
+                shape: 'triangle',
+                radius: 10.0,
+                opacity: 1,
+                color: 'rgba(50,87,128,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 2.0,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(3,114,242,1.0)',
+                interactive: true,
+            }
+                    break;
+                case 'Marché à bétail':
+                    return {
+                pane: 'pane_Infrastructures_6',
+                radius: 10.0,
+                opacity: 1,
+                color: 'rgba(0,0,0,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(231,24,24,1.0)',
+                interactive: true,
+            }
+                    break;
+                case 'Parc de vaccination':
+                    return {
+                pane: 'pane_Infrastructures_6',
+                radius: 10.0,
+                opacity: 1,
+                color: 'rgba(1,22,255,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 2.0,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(251,154,153,1.0)',
+                interactive: true,
+            }
+                    break;
+                case 'Poste vétérinaire':
+                    return {
+                pane: 'pane_Infrastructures_6',
+                radius: 10.0,
+                opacity: 1,
+                color: 'rgba(227,26,28,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(12,238,27,1.0)',
+                interactive: true,
+            }
+                    break;
+                case 'Tannerie':
+                    return {
+                pane: 'pane_Infrastructures_6',
+                radius: 10.0,
+                opacity: 1,
+                color: 'rgba(12,0,244,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 2.0,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(215,10,251,1.0)',
+                interactive: true,
+            }
+                    break;
+                case 'Unité de production fourragère':
+                    return {
+                pane: 'pane_Infrastructures_6',
+                radius: 10.0,
+                opacity: 1,
+                color: 'rgba(12,0,244,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 2.0,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(139,39,5,1.0)',
+                interactive: true,
+            }
+                    break;
+            }
+        }
+        map.createPane('pane_Infrastructures_6');
+        map.getPane('pane_Infrastructures_6').style.zIndex = 406;
+        map.getPane('pane_Infrastructures_6').style['mix-blend-mode'] = 'normal';
+        var layer_Infrastructures_6 = new L.geoJson(json_Infrastructures_6, {
+            attribution: '',
+            interactive: true,
+            dataVar: 'json_Infrastructures_6',
+            layerName: 'layer_Infrastructures_6',
+            pane: 'pane_Infrastructures_6',
+            onEachFeature: pop_Infrastructures_6,
+            pointToLayer: function (feature, latlng) {
+                var context = {
+                    feature: feature,
+                    variables: {}
+                };
+                return L.circleMarker(latlng, style_Infrastructures_6_0(feature));
+            },
+        });
+        var cluster_Infrastructures_6 = new L.MarkerClusterGroup({showCoverageOnHover: false,
+            spiderfyDistanceMultiplier: 2});
+        cluster_Infrastructures_6.addLayer(layer_Infrastructures_6);
+
+        bounds_group.addLayer(layer_Infrastructures_6);
+        cluster_Infrastructures_6.addTo(map);
+        var osmGeocoder = new L.Control.Geocoder({
+            collapsed: true,
+            position: 'topleft',
+            text: 'Search',
+            title: 'Testing'
+        }).addTo(map);
+        document.getElementsByClassName('leaflet-control-geocoder-icon')[0]
+        .className += ' fa fa-search';
+        document.getElementsByClassName('leaflet-control-geocoder-icon')[0]
+        .title += 'Search for a place';
+        var overlaysTree = [
+            {label: 'Infrastructures<br /><table><tr><td style="text-align: center;"><img src="legend/Infrastructures_6_AEPS0.png" /></td><td>AEPS</td></tr><tr><td style="text-align: center;"><img src="legend/Infrastructures_6_Airedabattage1.png" /></td><td>Aire d\'abattage</td></tr><tr><td style="text-align: center;"><img src="legend/Infrastructures_6_Biodigesteurménage2.png" /></td><td>Biodigesteur ménage</td></tr><tr><td style="text-align: center;"><img src="legend/Infrastructures_6_Biodigesteurproductif3.png" /></td><td>Biodigesteur productif</td></tr><tr><td style="text-align: center;"><img src="legend/Infrastructures_6_Champsécole4.png" /></td><td>Champs école</td></tr><tr><td style="text-align: center;"><img src="legend/Infrastructures_6_Forage5.png" /></td><td>Forage</td></tr><tr><td style="text-align: center;"><img src="legend/Infrastructures_6_Marchéàbétail6.png" /></td><td>Marché à bétail</td></tr><tr><td style="text-align: center;"><img src="legend/Infrastructures_6_Parcdevaccination7.png" /></td><td>Parc de vaccination</td></tr><tr><td style="text-align: center;"><img src="legend/Infrastructures_6_Postevétérinaire8.png" /></td><td>Poste vétérinaire</td></tr><tr><td style="text-align: center;"><img src="legend/Infrastructures_6_Tannerie9.png" /></td><td>Tannerie</td></tr><tr><td style="text-align: center;"><img src="legend/Infrastructures_6_Unitédeproductionfourragère10.png" /></td><td>Unité de production fourragère</td></tr></table>', layer: cluster_Infrastructures_6},
+            {label: '<img src="legend/Airedepture_5.png" /> Aire de pâture', layer: layer_Airedepture_5},
+            {label: '<img src="legend/Airesderepos_4.png" /> Aires de repos', layer: layer_Airesderepos_4},
+            {label: '<img src="legend/Pistesbtail_3.png" /> Pistes à bétail', layer: layer_Pistesbtail_3},
+            {label: '<img src="legend/Communesdinetrvention_2.png" /> Communes d\'inetrvention', layer: layer_Communesdinetrvention_2},
+            {label: "OSM Standard", layer: layer_OSMStandard_1, },
+            {label: "Google Satellite", layer: layer_GoogleSatellite_0},]
+        var lay = L.control.layers.tree(null, overlaysTree,{
+            //namedToggle: true,
+            //selectorBack: false,
+            //closedSymbol: '&#8862; &#x1f5c0;',
+            //openedSymbol: '&#8863; &#x1f5c1;',
+            //collapseAll: 'Collapse all',
+            //expandAll: 'Expand all',
+            collapsed: true,
+        });
+        lay.addTo(map);
+        setBounds();
+        var i = 0;
+        layer_Communesdinetrvention_2.eachLayer(function(layer) {
+            var context = {
+                feature: layer.feature,
+                variables: {}
+            };
+            layer.bindTooltip((layer.feature.properties['Nom'] !== null?String('<div style="color: #323232; font-size: 10pt; font-family: \'Arial\', sans-serif;">' + layer.feature.properties['Nom']) + '</div>':''), {permanent: true, offset: [-0, -16], className: 'css_Communesdinetrvention_2'});
+            labels.push(layer);
+            totalMarkers += 1;
+              layer.added = true;
+              addLabel(layer, i);
+              i++;
+        });
+        var i = 0;
+        layer_Infrastructures_6.eachLayer(function(layer) {
+            var context = {
+                feature: layer.feature,
+                variables: {}
+            };
+            layer.bindTooltip((layer.feature.properties['Type'] !== null?String('<div style="color: #323232; font-size: 10pt; font-family: \'Arial\', sans-serif;">' + layer.feature.properties['Type']) + '</div>':''), {permanent: true, offset: [-0, -16], className: 'css_Infrastructures_6'});
+            labels.push(layer);
+            totalMarkers += 1;
+              layer.added = true;
+              addLabel(layer, i);
+              i++;
+        });
+        map.addControl(new L.Control.Search({
+            layer: cluster_Infrastructures_6,
+            initial: false,
+            hideMarkerOnCollapse: true,
+            propertyName: 'Type'}));
+        document.getElementsByClassName('search-button')[0].className +=
+         ' fa fa-binoculars';
+        resetLabels([layer_Communesdinetrvention_2,layer_Infrastructures_6]);
+        map.on("zoomend", function(){
+            resetLabels([layer_Communesdinetrvention_2,layer_Infrastructures_6]);
+        });
+        map.on("layeradd", function(){
+            resetLabels([layer_Communesdinetrvention_2,layer_Infrastructures_6]);
+        });
+        map.on("layerremove", function(){
+            resetLabels([layer_Communesdinetrvention_2,layer_Infrastructures_6]);
+        });
+        </script>
+    </body>
+</html>
